@@ -10,8 +10,15 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout deploy repo
         uses: actions/checkout@v4
+
+      - name: Checkout latest Pallet Optimizer
+        uses: actions/checkout@v4
+        with:
+          repository: tommyvercettiseh/pallet_optimizer_html
+          ref: main
+          path: pallet_optimizer_html
 
       - name: Create pallet optimizer directory
         uses: appleboy/ssh-action@v1.2.2
@@ -23,13 +30,14 @@ jobs:
           script: |
             mkdir -p /webroots/sites/httpdocs/pallet-optimizer
 
-      - name: Upload to Hostnet via SSH
+      - name: Upload Pallet Optimizer to Hostnet
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ssh.cyz0ptrz6.service.one
           username: ${{ secrets.FTP_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
-          source: "index.html"
+          source: "pallet_optimizer_html/index.html,pallet_optimizer_html/assets,pallet_optimizer_html/manifest.webmanifest,pallet_optimizer_html/service-worker.js"
           target: "/webroots/sites/httpdocs/pallet-optimizer/"
+          strip_components: 1
           overwrite: true
