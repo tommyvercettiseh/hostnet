@@ -21,7 +21,7 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           protocol: ftp
           local-dir: ./
-          server-dir: ./pallet-optimizer/
+          server-dir: ./
           exclude: |
             **/.git*
             **/.git*/**
