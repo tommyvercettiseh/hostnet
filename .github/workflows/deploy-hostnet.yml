@@ -13,16 +13,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Upload to Hostnet via FTP
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.6
+      - name: Upload to Hostnet via SSH
+        uses: appleboy/scp-action@v0.1.7
         with:
-          server: ${{ secrets.FTP_HOST }}
+          host: ssh.cyz0ptrz6.service.one
           username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          protocol: ftp
-          local-dir: ./
-          server-dir: ./webroots/sites/hesseldevries.com/
-          exclude: |
-            **/.git*
-            **/.git*/**
-            **/node_modules/**
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          source: "index.html"
+          target: "/webroots/sites/hesseldevries.com/"
+          overwrite: true
