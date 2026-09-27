@@ -1,3 +1,2 @@
-Deploy latest pallet_optimizer_html revision: d617ddef7acfeb89bdf0a4ab2769ec5f7c863f86
-Version: 0.3.0
-Triggered: 2026-09-03T11:01:00+02:00
+project=pallet-optimizer
+reason=central-deploy-smoke-test
