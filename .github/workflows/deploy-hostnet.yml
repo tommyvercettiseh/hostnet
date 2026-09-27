@@ -1,26 +1,77 @@
-name: Deploy to Hostnet
+name: Central Hostnet Deploy
 
 on:
+  workflow_dispatch:
+    inputs:
+      project:
+        description: "Project to deploy"
+        required: true
+        type: choice
+        options:
+          - pallet-optimizer
+          - rebirth
   push:
     branches:
       - main
-  workflow_dispatch:
+    paths:
+      - ".deploy-trigger"
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+
     steps:
-      - name: Checkout deploy repo
+      - name: Checkout central deploy repo
         uses: actions/checkout@v4
 
-      - name: Checkout latest Pallet Optimizer
+      - name: Resolve project
+        id: project
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            PROJECT="${{ inputs.project }}"
+          else
+            PROJECT="$(sed -n 's/^project=//p' .deploy-trigger | head -n 1)"
+          fi
+
+          if [ -z "$PROJECT" ]; then
+            echo "No project selected."
+            exit 1
+          fi
+
+          if ! jq -e --arg project "$PROJECT" '.[$project]' deploy-config.json >/dev/null; then
+            echo "Unknown project: $PROJECT"
+            exit 1
+          fi
+
+          echo "name=$PROJECT" >> "$GITHUB_OUTPUT"
+          echo "repository=$(jq -r --arg project "$PROJECT" '.[$project].repository' deploy-config.json)" >> "$GITHUB_OUTPUT"
+          echo "ref=$(jq -r --arg project "$PROJECT" '.[$project].ref' deploy-config.json)" >> "$GITHUB_OUTPUT"
+          echo "source=$(jq -r --arg project "$PROJECT" '.[$project].source' deploy-config.json)" >> "$GITHUB_OUTPUT"
+          echo "target=$(jq -r --arg project "$PROJECT" '.[$project].target' deploy-config.json)" >> "$GITHUB_OUTPUT"
+          echo "strip=$(jq -r --arg project "$PROJECT" '.[$project].strip_components' deploy-config.json)" >> "$GITHUB_OUTPUT"
+          echo "public_url=$(jq -r --arg project "$PROJECT" '.[$project].public_url' deploy-config.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout selected project
         uses: actions/checkout@v4
         with:
-          repository: tommyvercettiseh/pallet_optimizer_html
-          ref: main
-          path: pallet_optimizer_html
+          repository: ${{ steps.project.outputs.repository }}
+          ref: ${{ steps.project.outputs.ref }}
+          path: project
 
-      - name: Create pallet optimizer directory
+      - name: Verify deploy source
+        shell: bash
+        run: |
+          IFS=',' read -ra SOURCES <<< "${{ steps.project.outputs.source }}"
+          for source in "${SOURCES[@]}"; do
+            if [ ! -e "$source" ]; then
+              echo "Missing deploy source: $source"
+              exit 1
+            fi
+          done
+
+      - name: Create target directory
         uses: appleboy/ssh-action@v1.2.2
         with:
           host: ssh.cyz0ptrz6.service.one
@@ -28,16 +79,23 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
           script: |
-            mkdir -p /webroots/sites/httpdocs/pallet-optimizer
+            mkdir -p "${{ steps.project.outputs.target }}"
 
-      - name: Upload Pallet Optimizer to Hostnet
+      - name: Upload selected project
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ssh.cyz0ptrz6.service.one
           username: ${{ secrets.FTP_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
-          source: "pallet_optimizer_html/index.html,pallet_optimizer_html/assets,pallet_optimizer_html/manifest.webmanifest,pallet_optimizer_html/service-worker.js"
-          target: "/webroots/sites/httpdocs/pallet-optimizer/"
-          strip_components: 1
+          source: "${{ steps.project.outputs.source }}"
+          target: "${{ steps.project.outputs.target }}"
+          strip_components: ${{ steps.project.outputs.strip }}
           overwrite: true
+
+      - name: Deployment summary
+        shell: bash
+        run: |
+          echo "### Hostnet deploy" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Project: ${{ steps.project.outputs.name }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- URL: ${{ steps.project.outputs.public_url }}" >> "$GITHUB_STEP_SUMMARY"
