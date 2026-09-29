@@ -10,6 +10,7 @@ on:
         options:
           - pallet-optimizer
           - rebirth
+          - website
   push:
     branches:
       - main
