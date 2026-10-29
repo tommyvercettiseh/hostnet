@@ -16,9 +16,29 @@ on:
       - main
     paths:
       - ".deploy-trigger"
+      - "deploy-config.json"
+      - ".github/workflows/deploy-hostnet.yml"
+
+  pull_request:
+
+permissions:
+  contents: read
+concurrency:
+  group: hostnet-production
+  cancel-in-progress: false
 
 jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate deployment configuration
+        run: |
+          python3 -m json.tool deploy-config.json > /dev/null
+          jq -e '.website.source | contains("project/projects") and contains("project/diensten") and contains("project/.htaccess")' deploy-config.json > /dev/null
   deploy:
+    needs: validate
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -73,6 +93,7 @@ jobs:
           done
 
       - name: Create target directory
+        if: steps.project.outputs.name != 'website'
         uses: appleboy/ssh-action@v1.2.2
         with:
           host: ssh.cyz0ptrz6.service.one
@@ -83,6 +104,7 @@ jobs:
             mkdir -p "${{ steps.project.outputs.target }}"
 
       - name: Upload selected project
+        if: steps.project.outputs.name != 'website'
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ssh.cyz0ptrz6.service.one
@@ -93,6 +115,25 @@ jobs:
           target: "${{ steps.project.outputs.target }}"
           strip_components: ${{ steps.project.outputs.strip }}
           overwrite: true
+
+      - name: Validate complete website
+        if: steps.project.outputs.name == 'website'
+        working-directory: project
+        run: python3 scripts/deploy_hostnet.py --check
+
+      - name: Install website SFTP client
+        if: steps.project.outputs.name == 'website'
+        run: sudo apt-get update -qq && sudo apt-get install -y python3-paramiko
+
+      - name: Back up, publish and verify complete website
+        if: steps.project.outputs.name == 'website'
+        working-directory: project
+        run: /usr/bin/python3 scripts/deploy_hostnet.py
+        env:
+          HOSTNET_HOST: ssh.cyz0ptrz6.service.one
+          HOSTNET_USER: ${{ secrets.FTP_USERNAME }}
+          HOSTNET_WEBROOT: /webroots/sites/httpdocs
+          HOSTNET_SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
 
       - name: Deployment summary
         shell: bash
