@@ -1,10 +1,10 @@
 {
   "pallet-optimizer": {
-    "repository": "tommyvercettiseh/pallet_optimizer_html",
+    "repository": "tommyvercettiseh/website",
     "ref": "main",
-    "source": "project/index.html,project/assets,project/manifest.webmanifest,project/service-worker.js",
+    "source": "project/pallet-optimizer/index.html,project/pallet-optimizer/assets,project/pallet-optimizer/manifest.webmanifest,project/pallet-optimizer/service-worker.js",
     "target": "/webroots/sites/httpdocs/pallet-optimizer/",
-    "strip_components": 1,
+    "strip_components": 2,
     "public_url": "https://hesseldevries.com/pallet-optimizer"
   },
   "rebirth": {
